@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Honor Of Kings</title>
+
+  <script src="./lib/vue.min.js"></script>
+  <script src="./lib/element-ui.min.js"></script>
+  <link rel="stylesheet" href="./lib/element-ui.min.css">
+  <script src="./lib/file-saver.min.js"></script>
+  <link rel="icon" href="./favicon.ico">
+
+  <style>
+    * { padding: 0; margin: 0; }
+    
+    html,body {
+      width: 100%;
+      min-height: 100%;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      margin-top: 50px;
+      width: 500px;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .logo {
+      display: block;
+      margin: 50px auto;
+      text-align: center;
+    }
+
+    .title {
+      letter-spacing: 2px;
+      font-size: 32px;
+      margin-bottom: 30px;
+      color: #212121;
+    }
+
+    .submit {
+      margin-top: 50px;
+    }
+
+    #audio {
+      display: none;
+    }
+
+    .avatar {
+      width: 25px;
+      height: 25px;
+      border-radius: 3px;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+
+    .el-cascader {
+      width: 100%;
+    }
+
+    .el-cascader .el-input .el-input__inner {
+      padding: 10px 30px;
+      width: 100% !important;
+      height: 50px;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <img class="logo" src="./map/logo.png" />
+      <h4 class="title"> 王者全英雄配音素材 </h4>
+      <div>
+        <el-cascader
+          size="medium"
+          v-model="selected"
+          :clearable="true"
+          :options="options"
+          @change="onChange">
+          <template slot-scope="{ node, data }">
+            <img class="avatar" :src="urlOfAvatar(data.value.faceimg)" v-if="data.value.faceimg"/>
+            <span>{{ data.label }}</span>
+          </template>
+        </el-cascader>
+      </div>
+
+      <el-button class="submit" type="primary" round :disabled="!selected" @click.native="submit">下载素材</el-button>
+
+      <audio id="audio"></audio>
+    </div>
+  </div>
+
+  <script src="./lists.js"></script>
+  <script>
+    const lists = window._hero_lists
+    const options = [
+      { value: '射手', label: '射手', children: [] },
+      { value: '法师', label: '法师', children: [] },
+      { value: '刺客', label: '刺客', children: [] },
+      { value: '坦克', label: '坦克', children: [] },
+      { value: '辅助', label: '辅助', children: [] },
+      { value: '战士', label: '战士', children: [] },
+    ]
+    const map = { '射手': 0, '法师': 1, '刺客': 2, '坦克': 3, '辅助': 4, '战士': 5 }
+
+    for(let heroid in lists) {
+      const { hero, voices } = lists[heroid]
+
+      // 部分英雄未收录 娜可露露、橘右京、盾山、不知火舞
+      if (!voices || !voices.yy_4e) {
+        continue
+      }
+
+      const _voices = []
+      for(let voice of voices.yy_4e) {
+        _voices.push({ value: voice, label: voice.yywa1_f2 })
+      }
+
+      const _hero = { value: hero, label: hero.title.slice("故事站-英雄列表-".length), children: _voices }
+  
+      // 存在多职业英雄
+      for(let job of hero.occupation.split('/')) {
+        const id = map[job]
+        options[id].children.push(_hero)
+      }
+    }
+
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          // true - 使用本地头像和音频数据
+          // false - 使用王者头像和音频数据
+          useStatic: false,
+
+          selected: [],
+          mp3: '',
+          options,
+        }
+      },
+      methods: {
+        urlOfAvatar(url) {
+          if (!this.useStatic) { return 'https:' + url }
+
+          return '../face/' + url.split('/').slice(-1)[0]
+        },
+        urlOfVoice(url) {
+          if (!this.useStatic) { return 'https:' + url }
+
+          return '../voice/' + url.split('/').slice(-1)[0]
+        },
+        onChange(value) {
+          const [ job, hero, voice ] = value
+
+          this.play(this.urlOfVoice(voice.yyyp_9a))
+        },
+        play(url) {
+          const audio = document.querySelector('#audio')
+
+          audio.setAttribute('src', url)
+          audio.setAttribute('autoplay', 'autoplay')
+        },
+        submit() {
+          const [ job, hero, voice ] = this.selected
+
+          const filename = job + '-' + hero.title.slice("故事站-英雄列表-".length) + '-' + voice.yywa1_f2.replace(/[&\|\\\*^%$#~!，。！…？@\-]/g," ") + '.mp3'
+
+          this.toFile(this.urlOfVoice(voice.yyyp_9a), filename)
+        },
+        download(url, type = "text") {
+          return new Promise((r, j) => {
+            const req = new XMLHttpRequest()
+            req.open('GET', url, true)
+            req.responseType = type
+            req.onload = () => r(req.response)
+            req.onerror = j
+            req.send(null)
+          })
+        },
+        async toFile(url, filename) {
+          const blob = await this.download(url, 'blob')
+          return saveAs(blob, filename);
+        },
+      },
+    })
+  </script>
+</body>
+</html>
